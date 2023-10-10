@@ -98,7 +98,7 @@ def form_visibility(data, rate, fc, bw, T_sti, T_stationarity):
     S_sti = (extract_visibilities(data, rate, T_sti, fc, bw, alpha=1.0))
 
     N_sample, N_channel = data.shape
-    N_sti_per_stationary_block = int(T_stationarity / T_sti) + 1
+    N_sti_per_stationary_block = int(T_stationarity / T_sti)
     S = (skutil.view_as_windows(S_sti,
                                 (N_sti_per_stationary_block, N_channel, N_channel),
                                 (N_sti_per_stationary_block, N_channel, N_channel))
@@ -224,17 +224,17 @@ def generate_frames(frame):
                        catalog=None,
                        show_labels=True,
                        show_axis=True)
-    return fig,
+    return fig, ax
 
 
 if __name__ == "__main__":
     os.chdir("/Users/sivanding/Codebase/DeepWaveTorch/")
 
-    file_path = "/Users/sivanding/Codebase/seld-dcase2023/spatialization/violin_metu_1000.wav"  # spatialized track
+    file_path = "/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/violin_metu_1000.wav"  # spatialized track
     audio_signal, rate = librosa.load(file_path, sr=None, mono=False)
-    audio_signal = librosa.resample(audio_signal, orig_sr=rate, target_sr=24000)
+    # audio_signal = librosa.resample(audio_signal, orig_sr=rate, target_sr=24000)
     audio_signal = audio_signal.T
-    rate = 24000
+    # rate = 24000
     # audio_signal = np.pad(audio_signal, ((0, audio_signal.shape[0]),(0,0)), 'constant')
     N_antenna = audio_signal.shape[1]
     print("Number of mics (antennas):", N_antenna)
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
     R = R[:, R_mask]  # Shrink visible view to avoid border effects.
     N_px = R.shape[1]
-    N_sample = S.shape[0]
+    # N_sample = S.shape[0]
 
     apgd_data = [] #np.zeros((N_freq, N_sample, N_px))
     for idx_freq in range(N_freq):
@@ -269,6 +269,8 @@ if __name__ == "__main__":
         A = steering_operator(dev_xyz, R, wl)
         S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
         N_sample = S.shape[0]
+        print(S.shape)
+
         apgd_gamma = 0.5
         apgd_lambda_ = np.zeros((N_sample,))
         apgd_N_iter = np.zeros((N_sample,), dtype=int)
@@ -316,7 +318,7 @@ if __name__ == "__main__":
         # get the ground truth for chosen time frame
 
         # plt.show()
-        plt.savefig("/Users/sivanding/Codebase/seld-dcase2023/spatialization/viz_output/{}.jpg".format(i))
+        plt.savefig("/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/viz_output/{}.jpg".format(i))
 
     apgd_T = np.transpose(apgd_data, (1, 0, 2))
     animation = FuncAnimation(plt.figure(), generate_frames, frames=len(apgd_T), interval=200)

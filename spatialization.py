@@ -176,14 +176,14 @@ if __name__ == "__main__":
         path_to_files = path_to_irs + str(ir) + '/'
         chans = []
         for m in range(1, 33):
-            x, sr = librosa.load(path_to_files + f'IR{m:05d}.wav', sr=24000)
+            x, sr = librosa.load(path_to_files + f'IR{m:05d}.wav')
             chans.append(x)
         irs.append(chans)
     irs = np.transpose(np.array(irs), (2, 1, 0))
     # (nsamps, nchans, nIRs)
 
     NIRS = irs.shape[-1]
-    sig, sr = librosa.load('spatialization/violin.wav', sr=24000)
+    sig, sr = librosa.load('violin.wav')
     # TODO: take only 5 seconds
     sig = sig[:sr * 5] /1000  # WTH? If I don't scale this, the output is distorter
     # Investigate why this is necessary
@@ -198,6 +198,6 @@ if __name__ == "__main__":
 
     # Calling the function
     output_signal = ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
-    sf.write('spatialization/violin_metu_1000.wav', output_signal, sr)
+    sf.write('violin_metu_1000.wav', output_signal, sr)
 
     # what are these paraters in the original implementation? win_size, sr, ir_times=velocity?
