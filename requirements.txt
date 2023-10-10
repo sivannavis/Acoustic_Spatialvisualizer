@@ -1,0 +1,6 @@
+pyunlocbox
+astropy
+matplotlib
+ipython
+scikit-image
+pandas
