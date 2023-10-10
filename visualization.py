@@ -315,7 +315,7 @@ if __name__ == "__main__":
         # get the ground truth for chosen time frame
 
         # plt.show()
-        plt.savefig("/Users/sivanding/Codebase/seld-dcase2023/spatialization/{}.jpg".format(i))
+        plt.savefig("/Users/sivanding/Codebase/seld-dcase2023/spatialization/viz_output/{}.jpg".format(i))
 
     apgd_T = np.transpose(apgd_data, (1, 0, 2))
     animation = FuncAnimation(plt.figure(), generate_frames, frames=len(apgd_T), interval=200)
