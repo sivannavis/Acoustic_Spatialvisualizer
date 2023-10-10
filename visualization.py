@@ -249,13 +249,10 @@ if __name__ == "__main__":
     idx_freq = 0  # choose 0th frequency
     T_sti = 10e-3
     T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10
-    S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
-    print(S.shape)
 
     xyz = get_xyz("eigenmike")  # get xyz coordinates of mic channels
     dev_xyz = np.array(xyz).T
     T_sti = 10.0e-3
-    rate = 24000
     T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10.
     N_freq = len(freq)
 
@@ -266,15 +263,17 @@ if __name__ == "__main__":
     N_px = R.shape[1]
     N_sample = S.shape[0]
 
-    apgd_data = np.zeros((N_freq, N_sample, 242))
+    apgd_data = [] #np.zeros((N_freq, N_sample, N_px))
     for idx_freq in range(N_freq):
         wl = constants.speed_of_sound / freq[idx_freq]
         A = steering_operator(dev_xyz, R, wl)
-
+        S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
+        N_sample = S.shape[0]
         apgd_gamma = 0.5
         apgd_lambda_ = np.zeros((N_sample,))
         apgd_N_iter = np.zeros((N_sample,), dtype=int)
         apgd_tts = np.zeros((N_sample,))
+        apgd_per_band = np.zeros((N_sample, N_px))
         I_prev = np.zeros((N_px,))
         for idx_s in range(N_sample):
 
@@ -287,7 +286,9 @@ if __name__ == "__main__":
             S_norm = (S_V * S_D) @ S_V.conj().T
 
             I_apgd = solve(S_norm, A, gamma=apgd_gamma, x0=I_prev.copy(), verbosity='NONE')
-            apgd_data[idx_freq][idx_s] = I_apgd['sol']
+            apgd_per_band[idx_s] = I_apgd['sol']
+        apgd_data.append(apgd_per_band)
+    apgd_data = np.stack(apgd_data, axis=0)
 
     # Generated tesselation for Robinson projection
     arg_lonticks = np.linspace(-180, 180, 5)
