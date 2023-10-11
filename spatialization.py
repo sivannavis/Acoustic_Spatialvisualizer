@@ -2,7 +2,6 @@ import librosa
 import numpy as np
 import scipy
 import soundfile as sf
-import scipy.signal as signal
 
 
 def stft_ham(insig, winsize=256, fftsize=512, hopsize=128):
@@ -171,7 +170,7 @@ if __name__ == "__main__":
     IRS = [302, 412, 522, 632, 542, 452, 362]
     # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
     FS = 24000
-    dur = 5 # mixture duration in seconds
+    dur = 5  # mixture duration in seconds
     irs = []
     for ir in IRS:
         path_to_files = path_to_irs + str(ir) + '/'
@@ -181,30 +180,25 @@ if __name__ == "__main__":
             x = librosa.resample(x, orig_sr=sr, target_sr=FS)
             chans.append(x)
         irs.append(chans)
-    irs = np.transpose(np.array(irs), (2, 1, 0)) # samples * channel * locations
+    irs = np.transpose(np.array(irs), (2, 1, 0))  # samples * channel * locations
     # (nsamps, nchans, nIRs)
 
     NIRS = irs.shape[-1]
     sig, sr = librosa.load('./violin.wav', sr=44100, mono=True)
     sig = librosa.resample(sig, orig_sr=sr, target_sr=FS)
-    sr = FS # ensure we are setting 24000 sampling rate
-    sig = sig[:sr * dur] # /1000  # WTH? If I don't scale this, the output is distorter
-    # Investigate why this is necessary: [asroman] - not necesary
-    # TODO: IR times: how you want to move the sound source over its event span as if a discrete estimation
-    # What is this below?
-    # ir_times = np.linspace(0, len(sig) / sr - (len(sig) / sr) / (NIRS),
-    #                        NIRS)  # Assume IRs are equally spaced
+    sr = FS  # ensure we are setting 24000 sampling rate
+    sig = sig[:sr * dur]
+    # IR times: how you want to move the sound source over its event span as if a discrete estimation
+
     # Create ir_times array with evenly spaced time values
-    ir_times = np.linspace(0, dur, NIRS) # linear spatialization
+    ir_times = np.linspace(0, dur, NIRS)  # linear spatialization
     # eg: 44100 samples, 2 seconds, (0, 2-2/7, 7)
-    win_size = 512 # Window size
+    win_size = 512  # Window size
     # apply effects before the spatialization
 
     # Calling the function
-    output_signal = 481.6986 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
-    output_signal = 481.6989*ctf_ltv_direct(sig, irs, ir_times, sr, win_size) / float(len(sig))
+    # output_signal = 481.6986 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
+    output_signal = 481.6989 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size) / float(len(sig))
     print("Length of output_signal:", output_signal.shape)
     print("Sampling rate (sr):", sr)
     sf.write('violin_metu_1000_2.wav', output_signal, sr)
-
-    # what are these paraters in the original implementation? win_size, sr, ir_times=velocity?
