@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 import scipy
 import soundfile as sf
+import scipy.signal as signal
 
 
 def stft_ham(insig, winsize=256, fftsize=512, hopsize=128):
@@ -98,7 +99,6 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
         Gint[tpts, ni + 1] = ntpts_ratio
 
     # compute spectra of irs
-
     if nCHir == 1:
         irspec = np.zeros((nBins, nIrFrames, nIrs), dtype=complex)
     else:
@@ -134,7 +134,7 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
 
     while nf <= nFrames - 1:
         # compute interpolated ctf
-        Gbuf[1:, :] = Gbuf[:-1, :] # TODO
+        Gbuf[1:, :] = Gbuf[:-1, :]  # TODO
         Gbuf[0, :] = Gint[nf, :]
         if nCHir == 1:
             for nif in range(nIrFrames):
@@ -155,8 +155,7 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
                                             axis=0))  ## get rid of the imaginary numerical error remain
         # convsig_nf = np.real(scipy.fft.ifft(convspec_nf, fft_size, axis=0))
         # overlap-add synthesis
-        convsig[idx + np.arange(0, fft_size), :] += convsig_nf  #TODO
-
+        convsig[idx + np.arange(0, fft_size), :] += convsig_nf  # TODO
         # advance sample pointer
         idx += hop_size
         nf += 1
@@ -182,7 +181,7 @@ if __name__ == "__main__":
             x = librosa.resample(x, orig_sr=sr, target_sr=FS)
             chans.append(x)
         irs.append(chans)
-    irs = np.transpose(np.array(irs), (2, 1, 0))
+    irs = np.transpose(np.array(irs), (2, 1, 0)) # samples * channel * locations
     # (nsamps, nchans, nIRs)
 
     NIRS = irs.shape[-1]
@@ -202,6 +201,7 @@ if __name__ == "__main__":
     # apply effects before the spatialization
 
     # Calling the function
+    output_signal = 481.6986 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
     output_signal = 481.6989*ctf_ltv_direct(sig, irs, ir_times, sr, win_size) / float(len(sig))
     print("Length of output_signal:", output_signal.shape)
     print("Sampling rate (sr):", sr)
