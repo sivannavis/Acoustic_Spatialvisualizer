@@ -229,8 +229,8 @@ def generate_frames(frame):
 if __name__ == "__main__":
     os.chdir("/Users/sivanding/Codebase/DeepWaveTorch/")
 
-    file_path = "/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/violin_metu_1000.wav"  # spatialized track
-    audio_signal, rate = librosa.load(file_path)
+    file_path = "/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/violin_metu_1000_2.wav"  # spatialized track
+    audio_signal, rate = librosa.load(file_path, mono=False)
     audio_signal = audio_signal.T
     N_antenna = audio_signal.shape[1]
     print("Number of mics (antennas):", N_antenna)

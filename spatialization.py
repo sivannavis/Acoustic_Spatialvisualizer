@@ -193,6 +193,7 @@ if __name__ == "__main__":
 
     # Create ir_times array with evenly spaced time values
     ir_times = np.linspace(0, dur, NIRS)  # linear spatialization
+    # np.arange(0., self._t_mix, 0.1)[np.arange(0,nRirs_moving)]
     # eg: 44100 samples, 2 seconds, (0, 2-2/7, 7)
     win_size = 256  # Window size
     # apply effects before the spatialization
