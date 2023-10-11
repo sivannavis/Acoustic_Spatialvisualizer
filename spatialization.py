@@ -98,7 +98,6 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
         Gint[tpts, ni + 1] = ntpts_ratio
 
     # compute spectra of irs
-
     if nCHir == 1:
         irspec = np.zeros((nBins, nIrFrames, nIrs), dtype=complex)
     else:
@@ -134,7 +133,7 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
 
     while nf <= nFrames - 1:
         # compute interpolated ctf
-        Gbuf[1:, :] = Gbuf[:-1, :] # TODO
+        Gbuf[1:, :] = Gbuf[:-1, :]  # TODO
         Gbuf[0, :] = Gint[nf, :]
         if nCHir == 1:
             for nif in range(nIrFrames):
@@ -155,11 +154,11 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
                                             axis=0))  ## get rid of the imaginary numerical error remain
         # convsig_nf = np.real(scipy.fft.ifft(convspec_nf, fft_size, axis=0))
         # overlap-add synthesis
-        convsig[idx + np.arange(0, fft_size), :] += convsig_nf  #TODO
+        convsig[idx + np.arange(0, fft_size), :] += convsig_nf  # TODO
         # advance sample pointer
         idx += hop_size
         nf += 1
-
+    print("convolved signal shape", convsig.shape)
     convsig = convsig[(win_size):(nFrames * win_size) // 2, :]
 
     return convsig
@@ -169,35 +168,39 @@ if __name__ == "__main__":
     path_to_irs = '/Users/sivanding/database/spargair/em32/'
     MICS = [6, 10, 22, 26]
     IRS = [302, 412, 522, 632, 542, 452, 362]
+    IRS.append(IRS[-1])
     # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
-
+    FS = 24000
+    dur = 5  # mixture duration in seconds
     irs = []
     for ir in IRS:
         path_to_files = path_to_irs + str(ir) + '/'
         chans = []
         for m in range(1, 33):
-            x, sr = librosa.load(path_to_files + f'IR{m:05d}.wav', sr=24000)
+            x, sr = librosa.load(path_to_files + f'IR{m:05d}.wav', sr=48000, mono=True)
+            x = librosa.resample(x, orig_sr=sr, target_sr=FS)
             chans.append(x)
         irs.append(chans)
-    irs = np.transpose(np.array(irs), (2, 1, 0))
+    irs = np.transpose(np.array(irs), (2, 1, 0))  # samples * channel * locations
     # (nsamps, nchans, nIRs)
 
     NIRS = irs.shape[-1]
-    sig, sr = librosa.load('spatialization/violin.wav', sr=24000)
-    # TODO: take only 5 seconds
-    sig = sig[:sr * 5] /1000  # WTH? If I don't scale this, the output is distorter
-    # Investigate why this is necessary
+    sig, sr = librosa.load('./violin.wav', sr=44100, mono=True)
+    sig = librosa.resample(sig, orig_sr=sr, target_sr=FS)
+    sr = FS  # ensure we are setting 24000 sampling rate
+    sig = sig[:sr * dur]
+    # IR times: how you want to move the sound source over its event span as if a discrete estimation
 
-    # TODO: IR times: how you want to move the sound source over its event span as if a discrete estimation
-    ir_times = np.linspace(0, len(sig) / sr - (len(sig) / sr) / (NIRS),
-                           NIRS)  # Assume IRs are equally spaced
+    # Create ir_times array with evenly spaced time values
+    ir_times = np.linspace(0, dur, NIRS)  # linear spatialization
+    # np.arange(0., self._t_mix, 0.1)[np.arange(0,nRirs_moving)]
     # eg: 44100 samples, 2 seconds, (0, 2-2/7, 7)
-    win_size = 512  # Window size
-
+    win_size = 256  # Window size
     # apply effects before the spatialization
 
     # Calling the function
-    output_signal = ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
-    sf.write('spatialization/violin_metu_1000.wav', output_signal, sr)
-
-    # what are these paraters in the original implementation? win_size, sr, ir_times=velocity?
+    # output_signal = 481.6986 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
+    output_signal = 481.6989 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size) / float(len(sig))
+    print("Length of output_signal:", output_signal.shape)
+    print("Sampling rate (sr):", sr)
+    sf.write('violin_metu_1000_2.wav', output_signal, sr)
