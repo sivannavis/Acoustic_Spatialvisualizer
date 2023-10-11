@@ -168,6 +168,7 @@ if __name__ == "__main__":
     path_to_irs = '/Users/sivanding/database/spargair/em32/'
     MICS = [6, 10, 22, 26]
     IRS = [302, 412, 522, 632, 542, 452, 362]
+    IRS.append(IRS[-1])
     # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
     FS = 24000
     dur = 5  # mixture duration in seconds
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     # Create ir_times array with evenly spaced time values
     ir_times = np.linspace(0, dur, NIRS)  # linear spatialization
     # eg: 44100 samples, 2 seconds, (0, 2-2/7, 7)
-    win_size = 512  # Window size
+    win_size = 256  # Window size
     # apply effects before the spatialization
 
     # Calling the function
