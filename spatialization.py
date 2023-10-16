@@ -167,11 +167,14 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
 if __name__ == "__main__":
     path_to_irs = '/Users/sivanding/database/spargair/em32/'
     MICS = [6, 10, 22, 26]
-    IRS = [302, 412, 522, 632, 542, 452, 362]
-    IRS.append(IRS[-1])
-    # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
+    IRS = [302, 412, 522, 632, 542, 452, 362] # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
+    IRS.append(IRS[-1]) # to make the last RIR play for the same duration we need to append a dummy one
+    NIRS = len(IRS) # total number of RIRs
+    win_size = 512  # Window size
     FS = 24000
     dur = 5  # mixture duration in seconds
+    trim_samps = 256*21 # trim padding applied during the convolution process (constant independent of win_size or dur)
+    trim_dur = (trim_samps)/FS # get duration in seconds for the padding section
     irs = []
     for ir in IRS:
         path_to_files = path_to_irs + str(ir) + '/'
@@ -182,25 +185,18 @@ if __name__ == "__main__":
             chans.append(x)
         irs.append(chans)
     irs = np.transpose(np.array(irs), (2, 1, 0))  # samples * channel * locations
-    # (nsamps, nchans, nIRs)
 
-    NIRS = irs.shape[-1]
-    sig, sr = librosa.load('./violin.wav', sr=44100, mono=True)
+    sig, sr = librosa.load('./violin.wav', sr=44100, mono=True) # IMPORTANT: assuming 44100 for now
     sig = librosa.resample(sig, orig_sr=sr, target_sr=FS)
-    sr = FS  # ensure we are setting 24000 sampling rate
-    sig = sig[:sr * dur]
+    sig = sig[:FS * dur + trim_samps] # account for removed samples from trim_samps
     # IR times: how you want to move the sound source over its event span as if a discrete estimation
-
+    dur += trim_dur
     # Create ir_times array with evenly spaced time values
-    ir_times = np.linspace(0, dur, NIRS)  # linear spatialization
-    # np.arange(0., self._t_mix, 0.1)[np.arange(0,nRirs_moving)]
-    # eg: 44100 samples, 2 seconds, (0, 2-2/7, 7)
-    win_size = 256  # Window size
-    # apply effects before the spatialization
-
+    ir_times = np.linspace(0, dur, NIRS) # linear spatialization
     # Calling the function
-    # output_signal = 481.6986 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size)
-    output_signal = 481.6989 * ctf_ltv_direct(sig, irs, ir_times, sr, win_size) / float(len(sig))
+    output_signal = ctf_ltv_direct(sig, irs, ir_times, FS, win_size) 
+    output_signal /= output_signal.max() # apply max normalization (prevents clipping/distortion)
+    output_signal = output_signal[trim_samps:,:] # trim front padding segment 
     print("Length of output_signal:", output_signal.shape)
-    print("Sampling rate (sr):", sr)
-    sf.write('violin_metu_1000_2.wav', output_signal, sr)
+    print("Sampling rate (FS):", FS)
+    sf.write('violin_metu_1000_2.wav', output_signal, FS)

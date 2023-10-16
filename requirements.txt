@@ -4,3 +4,7 @@ matplotlib
 ipython
 scikit-image
 pandas
+scipy
+librosa
+numpy
+soundfile
