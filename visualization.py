@@ -5,7 +5,6 @@ import librosa
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
-from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 
 from apgd import *
@@ -227,9 +226,7 @@ def generate_frames(frame):
 
 
 if __name__ == "__main__":
-    os.chdir("/Users/sivanding/Codebase/DeepWaveTorch/")
-
-    file_path = "/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/violin_metu_1000_2.wav"  # spatialized track
+    file_path = "/scratch/data/repos/SoundQ/fold1_room001_mix.wav" # spatialized track
     audio_signal, rate = librosa.load(file_path, mono=False)
     audio_signal = audio_signal.T
     N_antenna = audio_signal.shape[1]
@@ -252,7 +249,7 @@ if __name__ == "__main__":
     N_freq = len(freq)
 
     wl_min = constants.speed_of_sound / (freq.max() + 500)
-    R = np.load("tracks/eigenmike_grid.npy")
+    R = np.load("/scratch/data/metu_arni_cartesian_grid/em32_cartesian_grid.npy")
     R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
     R = R[:, R_mask]  # Shrink visible view to avoid border effects.
     N_px = R.shape[1]
@@ -299,7 +296,7 @@ if __name__ == "__main__":
     plt.rcParams['figure.figsize'] = [10, 5]
     apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
     N_max_frames = 50  # maximum number of frames to display (each frame is 100ms)
-    for i, I_frame in enumerate(apgd_T[:N_max_frames]):  # I_frame in bin * 242
+    for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
         N_px = I_frame.shape[1]
         I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
         # print(I_rgb, R_field)
@@ -311,10 +308,4 @@ if __name__ == "__main__":
                            show_axis=True)
 
         # get the ground truth for chosen time frame
-
-        # plt.show()
-        plt.savefig("/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/viz_output/{}.jpg".format(i))
-
-    apgd_T = np.transpose(apgd_data, (1, 0, 2))
-    animation = FuncAnimation(plt.figure(), generate_frames, frames=len(apgd_T), interval=200)
-    HTML(animation.to_jshtml())
+        plt.savefig("./viz_output/{}.jpg".format(i))
