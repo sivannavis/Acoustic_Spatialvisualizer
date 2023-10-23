@@ -3,6 +3,28 @@ import numpy as np
 import scipy
 import soundfile as sf
 
+def spatializer(sig, irs, ir_times, win_size=512, target_sample_rate=24000, trim_samps=256*21):
+    """
+    This funciton uses ctf_ltv_direct to create spatialized signal from mono with some normalization and trimming.
+    ---------
+    Params:
+        sig
+        irs
+        ir_times
+        win_size
+        target_sample_rate
+        trim_samps
+    Returns:
+        output_signal
+    """
+    output_signal = ctf_ltv_direct(sig, irs, ir_times, target_sample_rate, win_size)
+    output_signal /= output_signal.max()  # apply max normalization (prevents clipping/distortion)
+    output_signal = output_signal[trim_samps:, :]  # trim front padding segment
+    print("Length of output_signal:", output_signal.shape)
+    print("Sampling rate:", target_sample_rate)
+
+    return output_signal
+
 
 def stft_ham(insig, winsize=256, fftsize=512, hopsize=128):
     nb_dim = len(np.shape(insig))
@@ -162,41 +184,3 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
     convsig = convsig[(win_size):(nFrames * win_size) // 2, :]
 
     return convsig
-
-
-if __name__ == "__main__":
-    path_to_irs = '/Users/sivanding/database/spargair/em32/'
-    MICS = [6, 10, 22, 26]
-    IRS = [302, 412, 522, 632, 542, 452, 362] # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
-    IRS.append(IRS[-1]) # to make the last RIR play for the same duration we need to append a dummy one
-    NIRS = len(IRS) # total number of RIRs
-    win_size = 512  # Window size
-    FS = 24000
-    dur = 5  # mixture duration in seconds
-    trim_samps = 256*21 # trim padding applied during the convolution process (constant independent of win_size or dur)
-    trim_dur = (trim_samps)/FS # get duration in seconds for the padding section
-    irs = []
-    for ir in IRS:
-        path_to_files = path_to_irs + str(ir) + '/'
-        chans = []
-        for m in range(1, 33):
-            x, sr = librosa.load(path_to_files + f'IR{m:05d}.wav', sr=48000, mono=True)
-            x = librosa.resample(x, orig_sr=sr, target_sr=FS)
-            chans.append(x)
-        irs.append(chans)
-    irs = np.transpose(np.array(irs), (2, 1, 0))  # samples * channel * locations
-
-    sig, sr = librosa.load('./violin.wav', sr=44100, mono=True) # IMPORTANT: assuming 44100 for now
-    sig = librosa.resample(sig, orig_sr=sr, target_sr=FS)
-    sig = sig[:FS * dur + trim_samps] # account for removed samples from trim_samps
-    # IR times: how you want to move the sound source over its event span as if a discrete estimation
-    dur += trim_dur
-    # Create ir_times array with evenly spaced time values
-    ir_times = np.linspace(0, dur, NIRS) # linear spatialization
-    # Calling the function
-    output_signal = ctf_ltv_direct(sig, irs, ir_times, FS, win_size) 
-    output_signal /= output_signal.max() # apply max normalization (prevents clipping/distortion)
-    output_signal = output_signal[trim_samps:,:] # trim front padding segment 
-    print("Length of output_signal:", output_signal.shape)
-    print("Sampling rate (FS):", FS)
-    sf.write('violin_metu_1000_2.wav', output_signal, FS)
