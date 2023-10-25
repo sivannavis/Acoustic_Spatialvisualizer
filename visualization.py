@@ -5,11 +5,149 @@ import librosa
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
-from matplotlib.animation import FuncAnimation
 
 from apgd import *
 from plot_utils import *
 from utils import *
+
+ambeovr_raw = {
+    # colatitude (deg), azimuth (deg), radius (m)
+    "Ch1:FLU": [55, 45, 0.01],
+    "Ch2:FRD": [125, -45, 0.01],
+    "Ch3:BLD": [125, 135, 0.01],
+    "Ch4:BRU": [55, -135, 0.01],
+}
+
+tetra_raw = {
+    # colatitude (deg), azimuth (deg), radius (m)
+    "Ch1:FLU": [55, 45, 0.042],
+    "Ch2:FRD": [125, -45, 0.042],
+    "Ch3:BLD": [125, 135, 0.042],
+    "Ch4:BRU": [55, -135, 0.042],
+}
+
+eigenmike_raw = {
+    # colatitude, azimuth, radius
+    # (degrees, degrees, meters)
+    "1": [69, 0, 0.042],
+    "2": [90, 32, 0.042],
+    "3": [111, 0, 0.042],
+    "4": [90, 328, 0.042],
+    "5": [32, 0, 0.042],
+    "6": [55, 45, 0.042],
+    "7": [90, 69, 0.042],
+    "8": [125, 45, 0.042],
+    "9": [148, 0, 0.042],
+    "10": [125, 315, 0.042],
+    "11": [90, 291, 0.042],
+    "12": [55, 315, 0.042],
+    "13": [21, 91, 0.042],
+    "14": [58, 90, 0.042],
+    "15": [121, 90, 0.042],
+    "16": [159, 89, 0.042],
+    "17": [69, 180, 0.042],
+    "18": [90, 212, 0.042],
+    "19": [111, 180, 0.042],
+    "20": [90, 148, 0.042],
+    "21": [32, 180, 0.042],
+    "22": [55, 225, 0.042],
+    "23": [90, 249, 0.042],
+    "24": [125, 225, 0.042],
+    "25": [148, 180, 0.042],
+    "26": [125, 135, 0.042],
+    "27": [90, 111, 0.042],
+    "28": [55, 135, 0.042],
+    "29": [21, 269, 0.042],
+    "30": [58, 270, 0.042],
+    "31": [122, 270, 0.042],
+    "32": [159, 271, 0.042],
+}
+
+
+def visualizer(file_path):
+    """
+    each frame is 100ms
+    """
+    audio_signal, rate = librosa.load(file_path, mono=False)
+    audio_signal = audio_signal.T
+    N_antenna = audio_signal.shape[1]
+    print("Number of mics (antennas):", N_antenna)
+    assert N_antenna == 32, "For optimal visualization the test signal should contain 32 channels"
+
+    # Generated tesselation for Robinson projection
+    arg_lonticks = np.linspace(-180, 180, 5)
+
+    # Filter field to lie in specified interval
+    apgd_data, R = get_frame(audio_signal, rate)  # TODO: what is R?
+    _, R_lat, R_lon = cart2eq(*R)
+    _, R_lon_d = wrapped_rad2deg(R_lat, R_lon)
+    min_lon, max_lon = arg_lonticks.min(), arg_lonticks.max()
+    mask_lon = (min_lon <= R_lon_d) & (R_lon_d <= max_lon)
+    R_field = eq2cart(1, R_lat[mask_lon], R_lon[mask_lon])
+
+    plt.rcParams['figure.figsize'] = [10, 5]
+
+    apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
+    output_dir = "viz_output"
+    for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
+        N_px = I_frame.shape[1]
+        I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
+        I_rgb /= I_rgb.max()
+        draw_map(I_rgb, R_field,
+                 lon_ticks=arg_lonticks,
+                 catalog=None,
+                 show_labels=True,
+                 show_axis=True)
+
+        # get the ground truth for chosen time frame
+
+        plt.savefig("{}/{}.jpg".format(output_dir, i))
+
+    # save_gif(output_dir)
+
+
+def get_frame(audio_signal, rate):
+    freq, bw = (skutil  # Center frequencies to form images
+                .view_as_windows(np.linspace(1500, 4500, 10), (2,), 1)
+                .mean(axis=-1)), 50.0  # [Hz]
+
+    xyz = get_xyz("eigenmike")  # get xyz coordinates of mic channels
+    dev_xyz = np.array(xyz).T
+    T_sti = 10.0e-3
+    T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10.
+    N_freq = len(freq)
+
+    R = np.load("/Users/sivanding/Codebase/DeepWaveTorch/tracks/eigenmike_grid.npy")
+    R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
+    R = R[:, R_mask]  # Shrink visible view to avoid border effects.
+    N_px = R.shape[1]
+
+    apgd_data = []  # np.zeros((N_freq, N_sample, N_px))
+    for idx_freq in range(N_freq):
+        wl = constants.speed_of_sound / freq[idx_freq]
+        A = steering_operator(dev_xyz, R, wl)
+        S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
+        N_sample = S.shape[0]
+
+        apgd_gamma = 0.5
+        apgd_per_band = np.zeros((N_sample, N_px))
+        I_prev = np.zeros((N_px,))
+        for idx_s in range(N_sample):
+
+            # Normalize visibilities
+            S_D, S_V = linalg.eigh(S[idx_s])
+            if S_D.max() <= 0:
+                S_D[:] = 0
+            else:
+                S_D = np.clip(S_D / S_D.max(), 0, None)
+            S_norm = (S_V * S_D) @ S_V.conj().T
+
+            I_apgd = solve(S_norm, A, gamma=apgd_gamma, x0=I_prev.copy(), verbosity='NONE')
+            apgd_per_band[idx_s] = I_apgd['sol']
+        apgd_data.append(apgd_per_band)
+    apgd_data = np.stack(apgd_data, axis=0)
+
+    return apgd_data, R
 
 
 def extract_visibilities(_data, _rate, T, fc, bw, alpha):
@@ -105,60 +243,6 @@ def form_visibility(data, rate, fc, bw, T_sti, T_stationarity):
     return S
 
 
-ambeovr_raw = {
-    # colatitude (deg), azimuth (deg), radius (m)
-    "Ch1:FLU": [55, 45, 0.01],
-    "Ch2:FRD": [125, -45, 0.01],
-    "Ch3:BLD": [125, 135, 0.01],
-    "Ch4:BRU": [55, -135, 0.01],
-}
-
-tetra_raw = {
-    # colatitude (deg), azimuth (deg), radius (m)
-    "Ch1:FLU": [55, 45, 0.042],
-    "Ch2:FRD": [125, -45, 0.042],
-    "Ch3:BLD": [125, 135, 0.042],
-    "Ch4:BRU": [55, -135, 0.042],
-}
-
-eigenmike_raw = {
-    # colatitude, azimuth, radius
-    # (degrees, degrees, meters)
-    "1": [69, 0, 0.042],
-    "2": [90, 32, 0.042],
-    "3": [111, 0, 0.042],
-    "4": [90, 328, 0.042],
-    "5": [32, 0, 0.042],
-    "6": [55, 45, 0.042],
-    "7": [90, 69, 0.042],
-    "8": [125, 45, 0.042],
-    "9": [148, 0, 0.042],
-    "10": [125, 315, 0.042],
-    "11": [90, 291, 0.042],
-    "12": [55, 315, 0.042],
-    "13": [21, 91, 0.042],
-    "14": [58, 90, 0.042],
-    "15": [121, 90, 0.042],
-    "16": [159, 89, 0.042],
-    "17": [69, 180, 0.042],
-    "18": [90, 212, 0.042],
-    "19": [111, 180, 0.042],
-    "20": [90, 148, 0.042],
-    "21": [32, 180, 0.042],
-    "22": [55, 225, 0.042],
-    "23": [90, 249, 0.042],
-    "24": [125, 225, 0.042],
-    "25": [148, 180, 0.042],
-    "26": [125, 135, 0.042],
-    "27": [90, 111, 0.042],
-    "28": [55, 135, 0.042],
-    "29": [21, 269, 0.042],
-    "30": [58, 270, 0.042],
-    "31": [122, 270, 0.042],
-    "32": [159, 271, 0.042],
-}
-
-
 def _deg2rad(coords_dict):
     """
     Take a dictionary with microphone array
@@ -211,101 +295,15 @@ def get_xyz(mic='ambeo'):
 
     return xyz
 
-
-def generate_frames(frame):
-    I_frame = apgd_T[frame]
-    N_px = I_frame.shape[1]
-    I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
-    I_rgb /= I_rgb.max()
-    fig, ax = draw_map(I_rgb, R_field,
-                       lon_ticks=arg_lonticks,
-                       catalog=None,
-                       show_labels=True,
-                       show_axis=True)
-    return fig, ax
-
-
-if __name__ == "__main__":
-    file_path = "/scratch/data/repos/SoundQ/fold1_room001_mix.wav" # spatialized track
-    audio_signal, rate = librosa.load(file_path, mono=False)
-    audio_signal = audio_signal.T
-    N_antenna = audio_signal.shape[1]
-    print("Number of mics (antennas):", N_antenna)
-    assert N_antenna == 32, "For optimal visualization the test signal should contain 32 channels"
-
-    freq, bw = (skutil  # Center frequencies to form images
-                .view_as_windows(np.linspace(1500, 4500, 10), (2,), 1)
-                .mean(axis=-1)), 50.0  # [Hz]
-
-    idx_s = 10  # For the sake of an example, we will choose the 10th audio frame (you can choose whichever frame you want)
-    idx_freq = 0  # choose 0th frequency
-    T_sti = 10e-3
-    T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10
-
-    xyz = get_xyz("eigenmike")  # get xyz coordinates of mic channels
-    dev_xyz = np.array(xyz).T
-    T_sti = 10.0e-3
-    T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10.
-    N_freq = len(freq)
-
-    wl_min = constants.speed_of_sound / (freq.max() + 500)
-    R = np.load("/scratch/data/metu_arni_cartesian_grid/em32_cartesian_grid.npy")
-    R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
-    R = R[:, R_mask]  # Shrink visible view to avoid border effects.
-    N_px = R.shape[1]
-    # N_sample = S.shape[0]
-
-    apgd_data = []  # np.zeros((N_freq, N_sample, N_px))
-    for idx_freq in range(N_freq):
-        wl = constants.speed_of_sound / freq[idx_freq]
-        A = steering_operator(dev_xyz, R, wl)
-        S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
-        N_sample = S.shape[0]
-        print(S.shape)
-
-        apgd_gamma = 0.5
-        apgd_lambda_ = np.zeros((N_sample,))
-        apgd_N_iter = np.zeros((N_sample,), dtype=int)
-        apgd_tts = np.zeros((N_sample,))
-        apgd_per_band = np.zeros((N_sample, N_px))
-        I_prev = np.zeros((N_px,))
-        for idx_s in range(N_sample):
-
-            # Normalize visibilities
-            S_D, S_V = linalg.eigh(S[idx_s])
-            if S_D.max() <= 0:
-                S_D[:] = 0
-            else:
-                S_D = np.clip(S_D / S_D.max(), 0, None)
-            S_norm = (S_V * S_D) @ S_V.conj().T
-
-            I_apgd = solve(S_norm, A, gamma=apgd_gamma, x0=I_prev.copy(), verbosity='NONE')
-            apgd_per_band[idx_s] = I_apgd['sol']
-        apgd_data.append(apgd_per_band)
-    apgd_data = np.stack(apgd_data, axis=0)
-
-    # Generated tesselation for Robinson projection
-    arg_lonticks = np.linspace(-180, 180, 5)
-    # Filter field to lie in specified interval
-    _, R_lat, R_lon = cart2eq(*R)
-    _, R_lon_d = wrapped_rad2deg(R_lat, R_lon)
-    min_lon, max_lon = arg_lonticks.min(), arg_lonticks.max()
-    mask_lon = (min_lon <= R_lon_d) & (R_lon_d <= max_lon)
-    R_field = eq2cart(1, R_lat[mask_lon], R_lon[mask_lon])
-
-    plt.rcParams['figure.figsize'] = [10, 5]
-    apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
-    N_max_frames = 50  # maximum number of frames to display (each frame is 100ms)
-    for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
-        N_px = I_frame.shape[1]
-        I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
-        # print(I_rgb, R_field)
-        I_rgb /= I_rgb.max()
-        fig, ax = draw_map(I_rgb, R_field,
-                           lon_ticks=arg_lonticks,
-                           catalog=None,
-                           show_labels=True,
-                           show_axis=True)
-
-        # get the ground truth for chosen time frame
-        plt.savefig("./viz_output/{}.jpg".format(i))
+def save_gif(pic_path):
+    with Image() as wand:
+        # Add new frames into sequance
+        for file in os.listdir(pic_path):
+            if file.endswith('.jpg'):
+                wand.sequence.append(Image(filename=file))
+        # Create progressive delay for each frame
+        for cursor, frame in enumerate(wand.sequence):
+            frame.delay = 10 * (cursor + 1)
+        # Set layer type
+        wand.type = 'optimize'
+        wand.save(filename='animated.gif')
