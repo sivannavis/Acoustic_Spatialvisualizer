@@ -65,29 +65,29 @@ def get_mono(audio_path, duration=5, fs=FS, trim_samps=TS):
 
 
 if __name__ == "__main__":
-    '''
-    Spatializer
-    '''
-    # Specify customization
-    path_to_irs = '/Users/sivanding/database/spargair/em32/'
-    audio_path = './violin.wav'
-    IRS = [302, 412, 522, 632, 542, 452, 362]  # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
-
-    # Prepare IRs
-    irs = IR_spargair(path_to_irs, IRS)
-    signal = get_mono(audio_path)
-    ir_times = np.linspace(0, len(signal)/FS, irs.shape[-1]) # uniform interpolation in time
-
-    # The real thing
-    spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
-    sf.write('violin_metu_test.wav', spatialized_sig)
-
-    print("Spatialization completed.")
+    # '''
+    # Spatializer
+    # '''
+    # # Specify customization
+    # path_to_irs = '/Users/sivanding/database/spargair/em32/'
+    # audio_path = 'violin.wav'
+    # IRS = [302, 412, 522, 632, 542, 452, 362]  # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
+    #
+    # # Prepare IRs
+    # irs = IR_spargair(path_to_irs, IRS)
+    # signal = get_mono(audio_path)
+    # ir_times = np.linspace(0, len(signal)/FS, irs.shape[-1]) # uniform interpolation in time
+    #
+    # # The real thing
+    # spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
+    # sf.write('violin_metu_test.wav', spatialized_sig, samplerate=FS)
+    #
+    # print("Spatialization completed.")
 
     '''
     Visualizer
     '''
     # Specify custominzation
     file_path = "violin_metu_test.wav"  # spatialized track
-    visualizer(file_path, N_max_frames=50)
+    visualizer(file_path)
     print("Visualization completed.")
