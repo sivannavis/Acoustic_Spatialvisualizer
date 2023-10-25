@@ -5,7 +5,7 @@ import librosa
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
-import matplotlib.animation as animation
+# from wand.image import Image
 
 from apgd import *
 from plot_utils import *
@@ -65,11 +65,10 @@ eigenmike_raw = {
 }
 
 
-def visualizer(file_path, N_max_frames=1):
+def visualizer(file_path):
     """
     each frame is 100ms
     """
-    os.chdir("/Users/sivanding/Codebase/DeepWaveTorch/")
     audio_signal, rate = librosa.load(file_path, mono=False)
     audio_signal = audio_signal.T
     N_antenna = audio_signal.shape[1]
@@ -90,7 +89,8 @@ def visualizer(file_path, N_max_frames=1):
     plt.rcParams['figure.figsize'] = [10, 5]
 
     apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
-    for i, I_frame in enumerate(apgd_T[:N_max_frames]):  # I_frame in bin * 242
+    output_dir = "viz_output"
+    for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
         N_px = I_frame.shape[1]
         I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
         I_rgb /= I_rgb.max()
@@ -102,16 +102,9 @@ def visualizer(file_path, N_max_frames=1):
 
         # get the ground truth for chosen time frame
 
-        plt.savefig("/Users/sivanding/Codebase/Acoustic_Spatialvisualizer/viz_output/{}.jpg".format(i))
+        plt.savefig("{}/{}.jpg".format(output_dir, i))
 
-    apgd_T = np.transpose(apgd_data, (1, 0, 2))
-    ani = animation.FuncAnimation(plt.figure(), generate_frames, frames=len(apgd_T),
-                                        fargs=(apgd_T, R_field, arg_lonticks), interval=200)
-    writer = animation.PillowWriter(fps=15,
-                                    metadata=dict(artist='Me'),
-                                    bitrate=1800)
-    ani.save('{}.gif'.format(file_path[:-4]), writer=writer)
-    plt.show()
+    # save_gif(output_dir)
 
 
 def get_frame(audio_signal, rate):
@@ -125,7 +118,7 @@ def get_frame(audio_signal, rate):
     T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10.
     N_freq = len(freq)
 
-    R = np.load("tracks/eigenmike_grid.npy")
+    R = np.load("/Users/sivanding/Codebase/DeepWaveTorch/tracks/eigenmike_grid.npy")
     R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
     R = R[:, R_mask]  # Shrink visible view to avoid border effects.
     N_px = R.shape[1]
@@ -136,7 +129,6 @@ def get_frame(audio_signal, rate):
         A = steering_operator(dev_xyz, R, wl)
         S = form_visibility(audio_signal, rate, freq[idx_freq], bw, T_sti, T_stationarity)
         N_sample = S.shape[0]
-        print(S.shape)
 
         apgd_gamma = 0.5
         apgd_per_band = np.zeros((N_sample, N_px))
@@ -305,14 +297,15 @@ def get_xyz(mic='ambeo'):
     return xyz
 
 
-def generate_frames(frame, apgd_T, R_field, arg_lonticks):
-    I_frame = apgd_T[frame]
-    N_px = I_frame.shape[1]
-    I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
-    I_rgb /= I_rgb.max()
-    fig, ax = draw_map(I_rgb, R_field,
-                       lon_ticks=arg_lonticks,
-                       catalog=None,
-                       show_labels=True,
-                       show_axis=True)
-    return fig, ax
+def save_gif(pic_path):
+    with Image() as wand:
+        # Add new frames into sequance
+        for file in os.listdir(pic_path):
+            if file.endswith('.jpg'):
+                wand.sequence.append(Image(filename=file))
+        # Create progressive delay for each frame
+        for cursor, frame in enumerate(wand.sequence):
+            frame.delay = 10 * (cursor + 1)
+        # Set layer type
+        wand.type = 'optimize'
+        wand.save(filename='animated.gif')

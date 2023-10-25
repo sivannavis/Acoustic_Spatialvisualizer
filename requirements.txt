@@ -8,3 +8,5 @@ scipy
 librosa
 numpy
 soundfile
+wand
+imagemagick
