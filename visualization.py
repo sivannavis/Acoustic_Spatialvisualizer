@@ -5,7 +5,6 @@ import librosa
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
-# from wand.image import Image
 
 from apgd import *
 from plot_utils import *
@@ -295,7 +294,6 @@ def get_xyz(mic='ambeo'):
     xyz = [[coord for coord in mic_coords[ch]] for ch in mic_coords]
 
     return xyz
-
 
 def save_gif(pic_path):
     with Image() as wand:
