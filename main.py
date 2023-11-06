@@ -4,6 +4,7 @@ This script is the main script of acoustic spatial visualizer.
 import librosa
 import numpy as np
 import soundfile as sf
+import matplotlib.pyplot as plt
 
 from spatialization import spatializer
 from visualization import visualizer
@@ -65,9 +66,9 @@ def get_mono(audio_path, duration=5, fs=FS, trim_samps=TS):
 
 
 if __name__ == "__main__":
-    # '''
-    # Spatializer
-    # '''
+    '''
+    Spatializer
+    '''
     # # Specify customization
     # path_to_irs = '/Users/sivanding/database/spargair/em32/'
     # audio_path = 'violin.wav'
@@ -89,5 +90,10 @@ if __name__ == "__main__":
     '''
     # Specify custominzation
     file_path = "violin_metu_test.wav"  # spatialized track
-    visualizer(file_path)
+    x, y = visualizer(file_path)
+    plt.close("all")
+    fig, ax = plt.subplots()
+    ax.plot(x, y, 'o')
+    plt.show()
+    plt.savefig('trajectory.jpg')
     print("Visualization completed.")

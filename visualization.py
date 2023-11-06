@@ -2,6 +2,7 @@ import math
 import os
 
 import librosa
+import numpy as np
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
@@ -80,7 +81,7 @@ def visualizer(file_path):
     # Filter field to lie in specified interval
     apgd_data, R = get_frame(audio_signal, rate)  # TODO: what is R?
     _, R_lat, R_lon = cart2eq(*R)
-    _, R_lon_d = wrapped_rad2deg(R_lat, R_lon)
+    R_lat_d, R_lon_d = wrapped_rad2deg(R_lat, R_lon)
     min_lon, max_lon = arg_lonticks.min(), arg_lonticks.max()
     mask_lon = (min_lon <= R_lon_d) & (R_lon_d <= max_lon)
     R_field = eq2cart(1, R_lat[mask_lon], R_lon[mask_lon])
@@ -89,10 +90,17 @@ def visualizer(file_path):
 
     apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
     output_dir = "viz_output"
+    centers_x = []
+    centers_y = []
     for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
         N_px = I_frame.shape[1]
         I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
         I_rgb /= I_rgb.max()
+
+        x, y = get_center(I_rgb, R_lat_d, R_lon_d)
+        centers_x.append(x)
+        centers_y.append(y)
+
         draw_map(I_rgb, R_field,
                  lon_ticks=arg_lonticks,
                  catalog=None,
@@ -101,9 +109,25 @@ def visualizer(file_path):
 
         # get the ground truth for chosen time frame
 
-        plt.savefig("{}/{}.jpg".format(output_dir, i))
+        # plt.savefig("{}/{}.jpg".format(output_dir, i))
 
     # save_gif(output_dir)
+    # plot trajectory of centers
+    return centers_x, centers_y
+
+
+def get_center(img_rgb, lat_degree, lon_degree):
+    # convert to greyscale
+    img_grey = 0.299 * img_rgb[0,:] + 0.587 * img_rgb[1,:] + 0.114 * img_rgb[2,:]
+    min = img_grey.mean() * 0.1
+    pos = np.zeros_like(lat_degree)
+    for index, intensity in enumerate(img_grey):
+        if intensity <= min:
+            pos[index] += 1
+    center_lat = pos @ lat_degree.T / sum(pos) # y axis
+    center_lon = pos @ lon_degree.T / sum(pos) # x axis
+
+    return center_lon, center_lat
 
 
 def get_frame(audio_signal, rate):
@@ -294,6 +318,7 @@ def get_xyz(mic='ambeo'):
     xyz = [[coord for coord in mic_coords[ch]] for ch in mic_coords]
 
     return xyz
+
 
 def save_gif(pic_path):
     with Image() as wand:
