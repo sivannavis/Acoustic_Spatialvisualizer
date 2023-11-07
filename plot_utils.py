@@ -9,6 +9,7 @@ import mpl_toolkits.basemap as basemap
 import matplotlib.tri as tri
 import numpy as np
 
+from sklearn.cluster import KMeans
 
 def wrapped_rad2deg(lat_r, lon_r):
     """
