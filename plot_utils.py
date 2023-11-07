@@ -158,13 +158,14 @@ def draw_map(I, R, lon_ticks, catalog=None, show_labels=False, show_axis=False):
     ax.tripcolor(triangulation, colors_cmap, cmap=mycmap,
                  shading='gouraud', alpha=0.9, edgecolors='w', linewidth=0.1)
 
-    Npts = 12 # find N maximum points
+    Npts = 6 # find N maximum points
     I_s = np.square(I).sum(axis=0)
     max_idx = I_s.argsort()[-Npts:][::-1]
-    x_y = np.column_stack((R_x[max_idx], R_y[max_idx]))
+    x_y = np.column_stack((R_x[max_idx], R_y[max_idx])) # stack N max energy points
     km_res = KMeans(n_clusters=1).fit(x_y) # apply k-means to max points
-    clusters = km_res.cluster_centers_
-    ax.scatter(R_x[max_idx], R_y[max_idx], c='b', s=5)
-    ax.scatter(clusters[:,0], clusters[:,1], s=500, alpha=0.3)
+    clusters = km_res.cluster_centers_ # get center of the cluster of N points
+    ax.scatter(R_x[max_idx], R_y[max_idx], c='b', s=5) # plot all N points
+    ax.scatter(clusters[:,0], clusters[:,1], s=500, alpha=0.3) # plot the center as a large point
+    cluster_center = bm(clusters[:,0][0], clusters[:,1][0], inverse=True)
 
-    return fig, ax
+    return fig, ax, cluster_center

@@ -89,11 +89,23 @@ if __name__ == "__main__":
     Visualizer
     '''
     # Specify custominzation
-    file_path = "violin_metu_test.wav"  # spatialized track
+    file_path = "violin_metu_synth.wav"  # spatialized track
     x, y = visualizer(file_path)
+
+
+    # plot groundtruth and estimated trajectory
     plt.close("all")
     fig, ax = plt.subplots()
-    ax.plot(x, y, 'o')
-    plt.show()
+    ax.plot(x, y, 'o-', label='estimated')
+    # show groundtruth
+    x_g = [90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90]
+    y_g = [0, 0, 0, 0, 0, 0, 0]
+    ax.plot(x_g, y_g, 'ro-', label='ground truth')
+    plt.title("Trajectory of spatialized audio")
+    plt.xlabel('Azimuth')
+    plt.ylabel('Elevation')
+    plt.legend(loc="upper left")
+    plt.tight_layout()
     plt.savefig('trajectory.jpg')
+    plt.show()
     print("Visualization completed.")
