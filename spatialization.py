@@ -1,9 +1,8 @@
-import librosa
 import numpy as np
 import scipy
-import soundfile as sf
 
-def spatializer(sig, irs, ir_times, win_size=512, target_sample_rate=24000, trim_samps=256*21):
+
+def spatializer(sig, irs, ir_times, win_size=512, target_sample_rate=24000, trim_samps=256 * 21):
     """
     This funciton uses ctf_ltv_direct to create spatialized signal from mono with some normalization and trimming.
     ---------

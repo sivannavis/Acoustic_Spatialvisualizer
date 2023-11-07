@@ -2,16 +2,13 @@
 This script is the main script of acoustic spatial visualizer.
 """
 import librosa
-import numpy as np
-import soundfile as sf
 import matplotlib.pyplot as plt
+import numpy as np
 
-from spatialization import spatializer
 from visualization import visualizer
 
-
-FS = 24000 # Target sample rate for spatialization
-WS = 512 # window size for spatialization
+FS = 24000  # Target sample rate for spatialization
+WS = 512  # window size for spatialization
 TS = 256 * 21  # trim padding applied during the convolution process (constant independent of win_size or dur)
 
 
@@ -54,7 +51,6 @@ def get_mono(audio_path, duration=5, fs=FS, trim_samps=TS):
         signal: padded, trimmed signal
     """
 
-
     trim_dur = (trim_samps) / fs  # get duration in seconds for the padding section
     signal, sr = librosa.load(audio_path, mono=True)
     signal = librosa.resample(signal, orig_sr=sr, target_sr=fs)
@@ -64,26 +60,25 @@ def get_mono(audio_path, duration=5, fs=FS, trim_samps=TS):
     return signal
 
 
-
 if __name__ == "__main__":
     '''
     Spatializer
     '''
-    # # Specify customization
-    # path_to_irs = '/Users/sivanding/database/spargair/em32/'
-    # audio_path = 'violin.wav'
-    # IRS = [302, 412, 522, 632, 542, 452, 362]  # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
-    #
-    # # Prepare IRs
-    # irs = IR_spargair(path_to_irs, IRS)
-    # signal = get_mono(audio_path)
-    # ir_times = np.linspace(0, len(signal)/FS, irs.shape[-1]) # uniform interpolation in time
-    #
-    # # The real thing
-    # spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
-    # sf.write('violin_metu_test.wav', spatialized_sig, samplerate=FS)
-    #
-    # print("Spatialization completed.")
+    # Specify customization
+    path_to_irs = '/Users/sivanding/database/spargair/em32/'
+    audio_path = 'violin.wav'
+    IRS = [302, 412, 522, 632, 542, 452, 362]  # azimuth: 90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90
+
+    # Prepare IRs
+    irs = IR_spargair(path_to_irs, IRS)
+    signal = get_mono(audio_path)
+    ir_times = np.linspace(0, len(signal)/FS, irs.shape[-1]) # uniform interpolation in time
+
+    # The real thing
+    spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
+    sf.write('violin_metu_test.wav', spatialized_sig, samplerate=FS)
+
+    print("Spatialization completed.")
 
     '''
     Visualizer
@@ -92,13 +87,12 @@ if __name__ == "__main__":
     file_path = "violin_metu_synth.wav"  # spatialized track
     x, y = visualizer(file_path)
 
-
     # plot groundtruth and estimated trajectory
     plt.close("all")
     fig, ax = plt.subplots()
     ax.plot(x, y, 'o-', label='estimated')
     # show groundtruth
-    x_g = [90, 90+26.6, 90+63.4, 180, -90-63.4, -90-26.6, -90]
+    x_g = [90, 90 + 26.6, 90 + 63.4, 180, -90 - 63.4, -90 - 26.6, -90]
     y_g = [0, 0, 0, 0, 0, 0, 0]
     ax.plot(x_g, y_g, 'ro-', label='ground truth')
     plt.title("Trajectory of spatialized audio")

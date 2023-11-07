@@ -2,7 +2,6 @@ import math
 import os
 
 import librosa
-import numpy as np
 import scipy.constants as constants
 import scipy.signal.windows as windows
 import skimage.util as skutil
@@ -97,34 +96,30 @@ def visualizer(file_path):
         I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
         I_rgb /= I_rgb.max()
 
-        # x, y = get_center(I_rgb, R_lat_d, R_lon_d)
-
         fig, ax, cluster_center = draw_map(I_rgb, R_field,
-                 lon_ticks=arg_lonticks,
-                 catalog=None,
-                 show_labels=True,
-                 show_axis=True)
+                                           lon_ticks=arg_lonticks,
+                                           catalog=None,
+                                           show_labels=True,
+                                           show_axis=True)
         centers_x.append(cluster_center[0])
         centers_y.append(cluster_center[1])
 
-        # get the ground truth for chosen time frame
 
-        # plt.savefig("{}/{}.jpg".format(output_dir, i))
+        plt.savefig("{}/{}.jpg".format(output_dir, i))
 
-    # save_gif(output_dir)
     return centers_x, centers_y
 
 
 def get_center(img_rgb, lat_degree, lon_degree):
     # convert to greyscale
-    img_grey = 0.299 * img_rgb[0,:] + 0.587 * img_rgb[1,:] + 0.114 * img_rgb[2,:]
+    img_grey = 0.299 * img_rgb[0, :] + 0.587 * img_rgb[1, :] + 0.114 * img_rgb[2, :]
     min = img_grey.mean() * 0.1
     pos = np.zeros_like(lat_degree)
     for index, intensity in enumerate(img_grey):
         if intensity <= min:
             pos[index] += 1
-    center_lat = pos @ lat_degree.T / sum(pos) # y axis
-    center_lon = pos @ lon_degree.T / sum(pos) # x axis
+    center_lat = pos @ lat_degree.T / sum(pos)  # y axis
+    center_lon = pos @ lon_degree.T / sum(pos)  # x axis
 
     return center_lon, center_lat
 
