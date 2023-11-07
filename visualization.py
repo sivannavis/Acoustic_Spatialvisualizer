@@ -97,22 +97,21 @@ def visualizer(file_path):
         I_rgb = I_frame.reshape((3, 3, N_px)).sum(axis=1)
         I_rgb /= I_rgb.max()
 
-        x, y = get_center(I_rgb, R_lat_d, R_lon_d)
-        centers_x.append(x)
-        centers_y.append(y)
+        # x, y = get_center(I_rgb, R_lat_d, R_lon_d)
 
-        draw_map(I_rgb, R_field,
+        fig, ax, cluster_center = draw_map(I_rgb, R_field,
                  lon_ticks=arg_lonticks,
                  catalog=None,
                  show_labels=True,
                  show_axis=True)
+        centers_x.append(cluster_center[0])
+        centers_y.append(cluster_center[1])
 
         # get the ground truth for chosen time frame
 
         # plt.savefig("{}/{}.jpg".format(output_dir, i))
 
     # save_gif(output_dir)
-    # plot trajectory of centers
     return centers_x, centers_y
 
 
