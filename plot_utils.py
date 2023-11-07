@@ -157,10 +157,13 @@ def draw_map(I, R, lon_ticks, catalog=None, show_labels=False, show_axis=False):
     ax.tripcolor(triangulation, colors_cmap, cmap=mycmap,
                  shading='gouraud', alpha=0.9, edgecolors='w', linewidth=0.1)
 
-    if catalog is not None:
-        _, sky_el, sky_az = cart2eq(*catalog.xyz)
-        sky_el, sky_az = wrapped_rad2deg(sky_el, sky_az)
-        sky_x, sky_y = bm(sky_az, sky_el)
-        ax.scatter(sky_x, sky_y, c='w', s=5)
+    Npts = 12 # find N maximum points
+    I_s = np.square(I).sum(axis=0)
+    max_idx = I_s.argsort()[-Npts:][::-1]
+    x_y = np.column_stack((R_x[max_idx], R_y[max_idx]))
+    km_res = KMeans(n_clusters=1).fit(x_y) # apply k-means to max points
+    clusters = km_res.cluster_centers_
+    ax.scatter(R_x[max_idx], R_y[max_idx], c='b', s=5)
+    ax.scatter(clusters[:,0], clusters[:,1], s=500, alpha=0.3)
 
     return fig, ax
