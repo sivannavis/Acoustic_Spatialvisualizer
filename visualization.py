@@ -3,6 +3,7 @@ import os
 
 import librosa
 import scipy.constants as constants
+import scipy.special as special
 import scipy.signal.windows as windows
 import skimage.util as skutil
 
@@ -63,6 +64,194 @@ eigenmike_raw = {
     "32": [159, 271, 0.042],
 }
 
+def spherical_jn_series_threshold(x, table_lookup=True, epsilon=1e-2):
+    r"""
+    Convergence threshold of series :math:`f_{n}(x) = \sum_{q = 0}^{n} (2 q + 1) j_{q}^{2}(x)`.
+
+    Parameters
+    ----------
+    x : float
+    table_lookup : bool
+        Use pre-computed table (with `epsilon=1e-2`) to accelerate the search.
+    epsilon : float
+        Only used when `table_lookup` is :py:obj:`False`.
+
+    Returns
+    -------
+    n : int
+        Value of `n` in :math:`f_{n}(x)` past which :math:`f_{n}(x) \ge 1 - \epsilon`.
+    """
+    if not (0 < epsilon < 1):
+        raise ValueError("Parameter[epsilon] must lie in (0, 1).")
+
+    if table_lookup is True:
+        rel_path = pathlib.Path("data", "math", "special", "spherical_jn_series_threshold.csv")
+        abs_path = pkg.resource_filename("imot_tools", str(rel_path))
+
+        data = pd.read_csv(abs_path).sort_values(by="x")
+        x = np.abs(x)
+        idx = int(np.digitize(x, bins=data["x"].values))
+        if idx == 0:  # Below smallest known x.
+            n = data["n_threshold"].iloc[0]
+        else:
+            if idx == len(data):  # Above largest known x.
+                ratio = data["n_threshold"].iloc[-1] / data["x"].iloc[-1]
+            else:
+                ratio = data["n_threshold"].iloc[idx - 1] / data["x"].iloc[idx - 1]
+            n = int(np.ceil(ratio * x))
+
+        return n
+    else:
+
+        def series(n, x):
+            q = np.arange(n)
+            _2q1 = 2 * q + 1
+            _sph = special.spherical_jn(q, x) ** 2
+
+            return np.sum(_2q1 * _sph)
+
+        n_opt = int(0.95 * x)
+        while True:
+            n_opt += 1
+            if 1 - series(n_opt, x) < epsilon:
+                return n_opt
+
+def pol2cart(r, colat, lon):
+    x = r * np.sin(colat) * np.cos(lon)
+    y = r * np.sin(colat) * np.sin(lon)
+    z = r * np.cos(colat)
+
+    XYZ = np.array([x, y, z])
+
+    return XYZ
+
+def fibonacci(N, direction=None, FoV=None):
+    r"""
+    fibonnaci near-uniform sampling on the sphere.
+
+    Parameters
+    ----------
+    N : int
+        Order of the grid, i.e. there will be :math:`4 (N + 1)^{2}` points on the sphere.
+    direction : :py:class:`~numpy.ndarray`
+        (3,) vector around which the grid is centered.
+        If :py:obj:`None`, then the grid covers the entire sphere.
+    FoV : float
+        Span of the grid [rad] centered at `direction`.
+        This parameter is ignored if `direction` left unspecified.
+
+    Returns
+    -------
+    XYZ : :py:class:`~numpy.ndarray`
+        (3, N_px) sample points.
+        `N_px == 4*(N+1)**2` if `direction` left unspecified.
+
+    Examples
+    --------
+    Sampling a zonal function :math:`f(r): \mathbb{S}^{2} \to \mathbb{C}` of order :math:`N` on the
+    sphere:
+
+    .. testsetup::
+
+       import numpy as np
+
+       from imot_tools.math.sphere.grid import fibonacci
+
+    .. doctest::
+
+       >>> N = 2
+       >>> XYZ = fibonacci(N)
+
+       >>> np.around(XYZ, 2)
+       array([[ 0.23, -0.29,  0.04,  0.36, -0.65,  0.61, -0.2 , -0.37,  0.8 ,
+               -0.81,  0.39,  0.28, -0.82,  0.95, -0.56, -0.13,  0.76, -1.  ,
+                0.71, -0.05, -0.63,  0.97, -0.79,  0.21,  0.46, -0.87,  0.8 ,
+               -0.33, -0.27,  0.68, -0.7 ,  0.36,  0.1 , -0.4 ,  0.4 , -0.16],
+              [ 0.  , -0.27,  0.51, -0.47,  0.12,  0.39, -0.74,  0.72, -0.29,
+               -0.34,  0.82, -0.89,  0.48,  0.21, -0.8 ,  0.98, -0.64, -0.04,
+                0.71, -1.  ,  0.76, -0.13, -0.55,  0.93, -0.81,  0.28,  0.37,
+               -0.78,  0.76, -0.36, -0.18,  0.56, -0.58,  0.31,  0.03, -0.17],
+              [ 0.97,  0.92,  0.86,  0.81,  0.75,  0.69,  0.64,  0.58,  0.53,
+                0.47,  0.42,  0.36,  0.31,  0.25,  0.19,  0.14,  0.08,  0.03,
+               -0.03, -0.08, -0.14, -0.19, -0.25, -0.31, -0.36, -0.42, -0.47,
+               -0.53, -0.58, -0.64, -0.69, -0.75, -0.81, -0.86, -0.92, -0.97]])
+
+    Sampling a zonal function :math:`f(r): \mathbb{S}^{2} \to \mathbb{C}` of order :math:`N` on
+    *part* of the sphere:
+
+    .. doctest::
+
+       >>> N = 2
+       >>> direction = np.r_[1, 0, 0]
+       >>> FoV = np.deg2rad(90)
+       >>> XYZ = fibonacci(N, direction, FoV)
+
+       >>> np.around(XYZ, 2)
+       array([[ 0.8 ,  0.95,  0.76,  0.71,  0.97,  0.8 ],
+              [-0.29,  0.21, -0.64,  0.71, -0.13,  0.37],
+              [ 0.53,  0.25,  0.08, -0.03, -0.19, -0.47]])
+
+    Notes
+    -----
+    The sample positions on the unit sphere are given (in radians) by [2]_:
+
+    .. math::
+
+       \cos(\theta_{q}) & = 1 - \frac{2 q + 1}{4 (N + 1)^{2}}, \qquad & q \in \{ 0, \ldots, 4 (N + 1)^{2} - 1 \},
+
+       \phi_{q} & = \frac{4 \pi}{1 + \sqrt{5}} q, \qquad & q \in \{ 0, \ldots, 4 (N + 1)^{2} - 1 \}.
+
+
+    .. [2] B. Rafaely, "Fundamentals of Spherical Array Processing", Springer 2015
+    """
+    if direction is not None:
+        direction = np.array(direction, dtype=float)
+        direction /= linalg.norm(direction)
+
+        if FoV is not None:
+            if not (0 < np.rad2deg(FoV) < 360):
+                raise ValueError("Parameter[FoV] must be in (0, 360) degrees.")
+        else:
+            raise ValueError("Parameter[FoV] must be specified if Parameter[direction] provided.")
+
+    if N < 0:
+        raise ValueError("Parameter[N] must be non-negative.")
+
+    N_px = 4 * (N + 1) ** 2
+    n = np.arange(N_px)
+
+    colat = np.arccos(1 - (2 * n + 1) / N_px)
+    lon = (4 * np.pi * n) / (1 + np.sqrt(5))
+    XYZ = np.stack(pol2cart(1, colat, lon), axis=0)
+
+    if direction is not None:  # region-limited case.
+        # TODO: highly inefficient to generate the grid this way!
+        min_similarity = np.cos(FoV / 2)
+        mask = (direction @ XYZ) >= min_similarity
+        XYZ = XYZ[:, mask]
+
+    return XYZ
+
+def nyquist_rate(XYZ, wl):
+    """
+    Order of imageable complex plane-waves by an instrument.
+
+    Parameters
+    ----------
+    XYZ : :py:class:`~numpy.ndarray`
+        (3, N_antenna) Cartesian array geometry.
+    wl : float
+        Wavelength [m]
+
+    Returns
+    -------
+    N : int
+        Maximum order of complex plane waves that can be imaged by the instrument.
+    """
+    baseline = linalg.norm(XYZ[:, np.newaxis, :] - XYZ[:, :, np.newaxis], axis=0)
+
+    N = spherical_jn_series_threshold((2 * np.pi / wl) * baseline.max())
+    return N
 
 def visualizer(file_path):
     """
@@ -135,7 +324,9 @@ def get_frame(audio_signal, rate):
     T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10.
     N_freq = len(freq)
 
-    R = np.load("/Users/sivanding/Codebase/DeepWaveTorch/tracks/eigenmike_grid.npy")
+    wl_min = constants.speed_of_sound / (freq.max() + 500)
+    sh_order = nyquist_rate(dev_xyz, wl_min) # Maximum order of complex plane waves that can be imaged by the instrument.
+    R = fibonacci(sh_order)
     R_mask = np.abs(R[2, :]) < np.sin(np.deg2rad(50))
     R = R[:, R_mask]  # Shrink visible view to avoid border effects.
     N_px = R.shape[1]
