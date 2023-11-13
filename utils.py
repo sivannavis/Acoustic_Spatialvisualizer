@@ -7,6 +7,17 @@ import pathlib
 import pandas as pd
 import pkg_resources as pkg
 import scipy.special as special
+import pysofaconventions as pysofa
+
+def load_rir_pos(filepath, doas=True):
+    sofa = pysofa.SOFAFile(filepath,'r')
+    assert sofa.isValid()
+    rirs = sofa.getVariableValue('Data.IR')
+    source_pos = sofa.getVariableValue('SourcePosition')
+    if doas:
+        source_pos = source_pos * (1/np.sqrt(np.sum(source_pos**2, axis=1)))[:, np.newaxis] #normalize
+    sofa.close()
+    return rirs, source_pos
 
 
 def jv_threshold(x):

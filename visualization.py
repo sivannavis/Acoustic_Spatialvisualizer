@@ -253,7 +253,7 @@ def nyquist_rate(XYZ, wl):
     N = spherical_jn_series_threshold((2 * np.pi / wl) * baseline.max())
     return N
 
-def visualizer(file_path):
+def visualizer(file_path, output_dir = "viz_output"):
     """
     each frame is 100ms
     """
@@ -277,7 +277,7 @@ def visualizer(file_path):
     plt.rcParams['figure.figsize'] = [10, 5]
 
     apgd_T = np.transpose(apgd_data, (1, 0, 2))  # frame, bin, 242? TODO: what is 242
-    output_dir = "viz_output"
+
     centers_x = []
     centers_y = []
     for i, I_frame in enumerate(apgd_T):  # I_frame in bin * 242
