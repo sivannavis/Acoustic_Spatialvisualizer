@@ -16,7 +16,9 @@ def spatializer(sig, irs, ir_times, win_size=512, target_sample_rate=24000, trim
     Returns:
         output_signal
     """
+
     output_signal = ctf_ltv_direct(sig, irs, ir_times, target_sample_rate, win_size)
+    # output_signal = 481.6989 * ctf_ltv_direct(sig, irs, ir_times, target_sample_rate, win_size) / float(len(sig))
     output_signal /= output_signal.max()  # apply max normalization (prevents clipping/distortion)
     output_signal = output_signal[trim_samps:, :]  # trim front padding segment
     print("Length of output_signal:", output_signal.shape)
@@ -175,7 +177,7 @@ def ctf_ltv_direct(sig, irs, ir_times, fs, win_size):
                                             axis=0))  ## get rid of the imaginary numerical error remain
         # convsig_nf = np.real(scipy.fft.ifft(convspec_nf, fft_size, axis=0))
         # overlap-add synthesis
-        convsig[idx + np.arange(0, fft_size), :] += convsig_nf  # TODO
+        convsig[idx + np.arange(0, fft_size), :] += convsig_nf
         # advance sample pointer
         idx += hop_size
         nf += 1

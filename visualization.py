@@ -253,10 +253,11 @@ def nyquist_rate(XYZ, wl):
     N = spherical_jn_series_threshold((2 * np.pi / wl) * baseline.max())
     return N
 
-def visualizer(file_path, output_dir = "viz_output"):
+def visualizer(file_path, output_dir = "viz_output", time_step=10.0e-3):
     """
     each frame is 100ms
     """
+    os.makedirs(output_dir, exist_ok=True)
     audio_signal, rate = librosa.load(file_path, mono=False)
     audio_signal = audio_signal.T
     N_antenna = audio_signal.shape[1]
@@ -267,7 +268,7 @@ def visualizer(file_path, output_dir = "viz_output"):
     arg_lonticks = np.linspace(-180, 180, 5)
 
     # Filter field to lie in specified interval
-    apgd_data, R = get_frame(audio_signal, rate)  # TODO: what is R?
+    apgd_data, R = get_frame(audio_signal, rate, time_step=time_step)  # TODO: what is R?
     _, R_lat, R_lon = cart2eq(*R)
     R_lat_d, R_lon_d = wrapped_rad2deg(R_lat, R_lon)
     min_lon, max_lon = arg_lonticks.min(), arg_lonticks.max()
@@ -294,7 +295,7 @@ def visualizer(file_path, output_dir = "viz_output"):
         centers_y.append(cluster_center[1])
 
 
-        plt.savefig("{}/{}.jpg".format(output_dir, i))
+        # plt.savefig("{}/{}.jpg".format(output_dir, i))
 
     return centers_x, centers_y
 
@@ -313,7 +314,7 @@ def get_center(img_rgb, lat_degree, lon_degree):
     return center_lon, center_lat
 
 
-def get_frame(audio_signal, rate):
+def get_frame(audio_signal, rate, time_step=1):
     freq, bw = (skutil  # Center frequencies to form images
                 .view_as_windows(np.linspace(1500, 4500, 10), (2,), 1)
                 .mean(axis=-1)), 50.0  # [Hz]
