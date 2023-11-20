@@ -295,7 +295,7 @@ def visualizer(file_path, output_dir = "viz_output", time_step=10.0e-3):
         centers_y.append(cluster_center[1])
 
 
-        # plt.savefig("{}/{}.jpg".format(output_dir, i))
+        plt.savefig("{}/{}.jpg".format(output_dir, i))
 
     return centers_x, centers_y
 

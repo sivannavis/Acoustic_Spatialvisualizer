@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import mpl_toolkits.basemap as basemap
 import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.cluster import KMeans
 
 
@@ -169,3 +172,66 @@ def draw_map(I, R, lon_ticks, catalog=None, show_labels=False, show_axis=False):
     cluster_center = bm(clusters[:, 0][0], clusters[:, 1][0], inverse=True)
 
     return fig, ax, cluster_center
+
+
+def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folder):
+    err_az = [a_i - b_i for a_i, b_i in zip(x, x_g)]
+    err_el = [a_i - b_i for a_i, b_i in zip(y, y_g)]
+    df = {}
+    df['azimuth_gt'] = x_g
+    df['elevation_gt'] = y_g
+    df['azimuth_est'] = x
+    df['elevation_est'] = y
+    df['azimuth_error'] = err_az
+    df['elevation_error'] = err_el
+    df['timestamp'] = timestamp
+    df = pd.DataFrame(df)
+
+    # plot groundtruth and estimated trajectory
+    plt.close("all")
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Trajectory", "Localization Error"))
+    fig.add_trace(go.Scatter(x=x, y=y, name='estimated', mode='markers', marker_size=20), row=1, col=1)
+    fig.add_trace(go.Scatter(x=x_g, y=y_g, name='ground truth', mode='markers', marker_size=20), row=1, col=1)
+
+    # plot localization error box plot
+    fig.add_trace(go.Box(y=df['azimuth_error'].values, name='azimuth error'), row=1, col=2)
+    fig.add_trace(go.Box(y=df['elevation_error'].values, name='elevation error'), row=1, col=2)
+    fig.update_xaxes(title_text='azimuth', row=1, col=1)
+    fig.update_yaxes(title_text='elevation', row=1, col=1)
+    fig.update_yaxes(title_text='degree', row=1, col=2)
+    fig.write_html(out_folder + "boxplot.html")
+    fig.show()
+
+    # plot azimuth and elevation change over time
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Azimuth over time", "Elevation over time"))
+    fig.add_trace(go.Scatter(x=df.timestamp, y=df.azimuth_est, mode='markers',
+                             marker_size=abs(df['azimuth_error']) / abs(df['azimuth_error']).max() * 50,
+                             name='estimated'), row=1,
+                  col=1)
+    fig.add_trace(go.Scatter(x=df.timestamp, y=df.azimuth_gt, mode='markers+lines', name='ground truth'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df.timestamp, y=df.elevation_est, mode='markers',
+                             marker_size=abs(df['elevation_error']) / abs(df['azimuth_error']).max() * 50,
+                             name='estimated'),
+                  row=1, col=2)
+    fig.add_trace(go.Line(x=df.timestamp, y=df.elevation_gt, mode='markers+lines', name='ground truth'), row=1, col=2)
+    for n, i in enumerate(ir_times):
+        fig.add_vline(x=i * 1000, line_dash='dash', line_color='blue', row=1, col=1)  # at what frame
+        fig.add_scatter(x=[i * 1000],
+                        y=[azimuth[n]],
+                        marker=dict(
+                            color='green',
+                            size=20
+                        ),
+                        name='actual gt', row=1, col=1)
+
+        fig.add_vline(x=i * 1000, line_dash='dash', line_color='blue', row=1, col=2)  # at what frame
+        fig.add_scatter(x=[i * 1000],
+                        y=[elevation[n]],
+                        marker=dict(
+                            color='green',
+                            size=20
+                        ),
+                        name='actual gt', row=1, col=2)
+
+    fig.write_html(out_folder + "time.html")
+    fig.show()

@@ -5,9 +5,8 @@ import os
 
 import librosa
 import pandas as pd
-import plotly.graph_objects as go
 import soundfile as sf
-from plotly.subplots import make_subplots
+
 
 from plot_utils import *
 from spatialization import spatializer
@@ -19,7 +18,7 @@ WS = 512  # window size for spatialization
 TS = 256 * 21  # trim padding applied during the convolution process (constant independent of win_size or dur)
 
 
-def IR_spargair(path_to_irs, IRS, win_size=WS, fs=FS):
+def get_IR(path_to_irs, IRS, win_size=WS, fs=FS):
     """
     Stack IRs of selected locations from spargair dataset.
     ---
@@ -46,8 +45,11 @@ def IR_spargair(path_to_irs, IRS, win_size=WS, fs=FS):
                 chans.append(x)
             irs.append(chans)
         irs = np.transpose(np.array(irs), (2, 1, 0))  # samples * channel * locations
-        az = [90, 90 - 26.6, 90 - 63.4, 0, -26.6, -63.4, -90, -90]
-        el = [0, 0, 0, 0, 0, 0, 0, 0]
+        x = [ (3 - int(i[0])) * 0.5 for i in IRS]
+        y = [(3 - int(i[1])) * 0.5 for i in IRS]
+        z = [(-2 + int(i[2])) * 0.3 for i in IRS]
+        r, el, az = zip(*[cart2eq(*i) for i in list(zip(x, y, z))])
+        el, az = wrapped_rad2deg(el, az)
     elif 'tau' in path_to_irs:  # tau boom shelter has 6480 four channel RIR with shape 7200 / 24kHz
         rirs, pos = load_rir_pos(path_to_irs)
         # take first 10 points
@@ -101,93 +103,56 @@ def get_gt(azimuth, elevation, ir_times, fs):
     return gt_az, gt_el, timestamps * 1000 / FS
 
 
-def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folder):
-    err_az = [a_i - b_i for a_i, b_i in zip(x, gt_az)]
-    err_el = [a_i - b_i for a_i, b_i in zip(y, gt_el)]
-    df = {}
-    df['azimuth_gt'] = gt_az
-    df['elevation_gt'] = gt_el
-    df['azimuth_est'] = x
-    df['elevation_est'] = y
-    df['azimuth_error'] = err_az
-    df['elevation_error'] = err_el
-    df['timestamp'] = timestamp
-    df = pd.DataFrame(df)
-
-    # plot groundtruth and estimated trajectory
-    plt.close("all")
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Trajectory", "Localization Error"))
-    fig.add_trace(go.Scatter(x=x, y=y, name='estimated', mode='markers', marker_size=20), row=1, col=1)
-    fig.add_trace(go.Scatter(x=x_g, y=y_g, name='ground truth', mode='markers', marker_size=20), row=1, col=1)
-
-    # plot localization error box plot
-    fig.add_trace(go.Box(y=df['azimuth_error'].values, name='azimuth error'), row=1, col=2)
-    fig.add_trace(go.Box(y=df['elevation_error'].values, name='elevation error'), row=1, col=2)
-    fig.update_xaxes(title_text='azimuth', row=1, col=1)
-    fig.update_yaxes(title_text='elevation', row=1, col=1)
-    fig.update_yaxes(title_text='degree', row=1, col=2)
-    fig.write_html(out_folder + "boxplot.html")
-    fig.show()
-
-    # plot azimuth and elevation change over time
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Azimuth over time", "Elevation over time"))
-    fig.add_trace(go.Scatter(x=df.timestamp, y=df.azimuth_est, mode='markers',
-                             marker_size=abs(df['azimuth_error']) / abs(df['azimuth_error']).max() * 50, name='estimated'), row=1,
-                  col=1)
-    fig.add_trace(go.Scatter(x=df.timestamp, y=df.azimuth_gt, mode='markers+lines',name='ground truth'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df.timestamp, y=df.elevation_est, mode='markers',
-                             marker_size=abs(df['elevation_error'])/ abs(df['azimuth_error']).max() * 50, name='estimated'),
-                             row=1,col=2)
-    fig.add_trace(go.Line(x=df.timestamp, y=df.elevation_gt, mode='markers+lines',name='ground truth'), row=1, col=2)
-    for n, i in enumerate(ir_times):
-        fig.add_vline(x= i * 1000, line_dash='dash', line_color='blue', row=1, col=1) # at what frame
-        fig.add_scatter(x= [i * 1000],
-                        y= [azimuth[n]],
-                        marker=dict(
-                            color='green',
-                            size=20
-                        ),
-                        name='actual gt', row=1, col=1)
-
-        fig.add_vline(x=i * 1000, line_dash='dash', line_color='blue', row=1, col=2)  # at what frame
-        fig.add_scatter(x=[i * 1000],
-                        y=[elevation[n]],
-                        marker=dict(
-                            color='green',
-                            size=20
-                        ),
-                        name='actual gt', row=1, col=2)
-
-
-    fig.write_html(out_folder + "time.html")
-    fig.show()
-
-
 if __name__ == "__main__":
+    '''
+    Trajectory configurations
+    '''
+    trajectories = ['left_to_right_mid',
+                    'left_to_right_down',
+                    'left_to_right_over',
+                    'up_to_down_left',
+                    'up_to_down_mid',
+                    'up_to_down_right',
+                    'left_up_to_right_down']
+    IRS = {}
+    trajectory = trajectories[4]
+    # left to right on middle plane
+    IRS[trajectories[0]] = ['302', '212', '122', '032', '142', '252', '362']
+    # left to right down
+    IRS[trajectories[1]] = ['304', '214', '124', '034', '144', '254', '364']
+    # left to right over
+    IRS[trajectories[2]] = ['300', '210', '120', '030', '140', '250', '360']
+    # up to down left
+    IRS[trajectories[3]] = ['300', '301', '302', '303', '304']
+    # up to down middle
+    IRS[trajectories[4]] = ['030', '031', '032', '033', '034']
+    # up to down right
+    IRS[trajectories[5]] = ['360', '361', '362', '363', '364']
+    # left up to right down
+    IRS[trajectories[6]] = ['300', '211', '122', '253', '364']
+
+    # Specify customization
+    path_to_irs = '/Users/sivanding/database/spargair/em32/'
+    # path_to_irs = './tau_srir/bomb_shelter.sofa'
+    audio_name = "white"
+    audio_path = f'./monosound/{audio_name}.wav'
+    output_path = f'./trajectories/{trajectory}/{audio_name}/'
+    os.makedirs(output_path, exist_ok=True)
+    spatial_path = f'{audio_name}_spatial.wav'
+
     '''
     Spatializer
     '''
-    # # Specify customization
-    path_to_irs = '/Users/sivanding/database/spargair/em32/'
-    # path_to_irs = './tau_srir/bomb_shelter.sofa'
-    audio_name = "violin"
-    audio_path = './monosound/{}.wav'.format(audio_name)
-    output_path = './trajectories/left-to-right/{}/'.format(audio_name)
-    os.makedirs(output_path, exist_ok=True)
-    spatial_path = '{}_spatial.wav'.format(audio_name)
-    # IRS = ['302', '212', '122', '032', '142', '252', '362']  # az = [90, 90 - 26.6, 90 - 63.4, 0, -26.6, -63.4, -90, -90]
-    IRS = ['302', '212', '122', '032', '142', '252',
-           '362']  # az = [90, 90 - 26.6, 90 - 63.4, 0, -26.6, -63.4, -90, -90]
 
     # Prepare IRs
-    irs, elevation, azimuth = IR_spargair(path_to_irs, IRS)
+    irs, elevation, azimuth = get_IR(path_to_irs, IRS[trajectory])
     signal = get_mono(audio_path, duration=5)
     ir_times = np.linspace(0, len(signal) / FS, irs.shape[-1])  # uniform interpolation in time
     gt_az, gt_el, timestamp = get_gt(azimuth, elevation, ir_times, FS)
 
     # The real thing
-    # spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
-    # sf.write(output_path + spatial_path, spatialized_sig, samplerate=FS)
+    spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
+    sf.write(output_path + spatial_path, spatialized_sig, samplerate=FS)
 
     print("Spatialization completed.")
 
