@@ -104,6 +104,9 @@ def get_gt(azimuth, elevation, ir_times, fs):
 
 
 if __name__ == "__main__":
+    spatialize = False
+    visualize_map = False
+    visualize_plot = True
     '''
     Trajectory configurations
     '''
@@ -115,21 +118,21 @@ if __name__ == "__main__":
                     'up_to_down_right',
                     'left_up_to_right_down']
     IRS = {}
-    trajectory = trajectories[4]
+    trajectory = trajectories[6]
     # left to right on middle plane
-    IRS[trajectories[0]] = ['302', '212', '122', '032', '142', '252', '362']
+    IRS[trajectories[0]] = ['302', '202', '212', '112', '122', '022', '032', '042','142','152', '252','262', '362']
     # left to right down
-    IRS[trajectories[1]] = ['304', '214', '124', '034', '144', '254', '364']
+    IRS[trajectories[1]] = ['300', '200', '210', '110', '120', '020', '030', '040','140','150', '250','260', '360']
     # left to right over
-    IRS[trajectories[2]] = ['300', '210', '120', '030', '140', '250', '360']
+    IRS[trajectories[2]] = ['304', '204', '214', '114', '124', '024', '034', '044','144','154', '254','264', '364']
     # up to down left
-    IRS[trajectories[3]] = ['300', '301', '302', '303', '304']
+    IRS[trajectories[3]] = ['304', '313','303', '302', '301', '311','300']
     # up to down middle
-    IRS[trajectories[4]] = ['030', '031', '032', '033', '034']
+    IRS[trajectories[4]] = ['034', '133','033', '032', '031', '131','030']
     # up to down right
-    IRS[trajectories[5]] = ['360', '361', '362', '363', '364']
+    IRS[trajectories[5]] = ['364', '353','363', '362', '361', '351','360']
     # left up to right down
-    IRS[trajectories[6]] = ['300', '211', '122', '253', '364']
+    IRS[trajectories[6]] = ['304', '204', '213', '113', '123', '022', '032', '042','141','151', '251','260', '360']
 
     # Specify customization
     path_to_irs = '/Users/sivanding/database/spargair/em32/'
@@ -151,21 +154,22 @@ if __name__ == "__main__":
     gt_az, gt_el, timestamp = get_gt(azimuth, elevation, ir_times, FS)
 
     # The real thing
-    spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
-    sf.write(output_path + spatial_path, spatialized_sig, samplerate=FS)
-
-    print("Spatialization completed.")
+    if spatialize:
+        spatialized_sig = spatializer(signal, irs, ir_times, target_sample_rate=FS)
+        sf.write(output_path + spatial_path, spatialized_sig, samplerate=FS)
+        print("Spatialization completed.")
 
     '''
     Visualizer
     '''
     # Specify custominzation
     file_path = output_path + spatial_path  # spatialized track
-    x, y = visualizer(file_path, output_dir=output_path + "viz_output", time_step=ir_times[1])
+    x, y = visualizer(file_path, visualize_map, output_dir=output_path + "viz_output", time_step=ir_times[1])
 
     '''
     Compare groundtruth and imager estimation in plots
     '''
-    comp_plot(x, y, gt_az, gt_el, timestamp, azimuth, elevation, ir_times, output_path)
+    if visualize_plot:
+        comp_plot(x, y, gt_az, gt_el, timestamp, azimuth, elevation, ir_times, output_path, trajectory)
 
     print("Visualization completed.")

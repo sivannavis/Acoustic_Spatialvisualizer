@@ -174,7 +174,7 @@ def draw_map(I, R, lon_ticks, catalog=None, show_labels=False, show_axis=False):
     return fig, ax, cluster_center
 
 
-def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folder):
+def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folder, main_title):
     err_az = [a_i - b_i for a_i, b_i in zip(x, x_g)]
     err_el = [a_i - b_i for a_i, b_i in zip(y, y_g)]
     df = {}
@@ -196,9 +196,10 @@ def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folde
     # plot localization error box plot
     fig.add_trace(go.Box(y=df['azimuth_error'].values, name='azimuth error'), row=1, col=2)
     fig.add_trace(go.Box(y=df['elevation_error'].values, name='elevation error'), row=1, col=2)
-    fig.update_xaxes(title_text='azimuth', row=1, col=1)
-    fig.update_yaxes(title_text='elevation', row=1, col=1)
-    fig.update_yaxes(title_text='degree', row=1, col=2)
+    fig.update_xaxes(range=[-100, 100], title_text='azimuth', row=1, col=1)
+    fig.update_yaxes(range=[-40, 40], title_text='elevation', row=1, col=1)
+    fig.update_yaxes(range=[-15, 20], title_text='degree', row=1, col=2)
+    fig.update_layout(title_text=main_title, title_x=0.5, title_font_size=40)
     fig.write_html(out_folder + "boxplot.html")
     fig.show()
 
@@ -232,6 +233,10 @@ def comp_plot(x, y, x_g, y_g, timestamp, azimuth, elevation, ir_times, out_folde
                             size=20
                         ),
                         name='actual gt', row=1, col=2)
-
+    fig.update_yaxes(range=[-100, 100], title_text='azimuth', row=1, col=1)
+    fig.update_yaxes(range=[-40, 40], title_text='elevation', row=1, col=2)
+    fig.update_xaxes(title_text='time', row=1, col=1)
+    fig.update_xaxes(title_text='time', row=1, col=2)
+    fig.update_layout(title_text=main_title, title_x=0.5, title_font_size=40)
     fig.write_html(out_folder + "time.html")
     fig.show()

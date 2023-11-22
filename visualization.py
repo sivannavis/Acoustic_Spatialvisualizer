@@ -253,7 +253,7 @@ def nyquist_rate(XYZ, wl):
     N = spherical_jn_series_threshold((2 * np.pi / wl) * baseline.max())
     return N
 
-def visualizer(file_path, output_dir = "viz_output", time_step=10.0e-3):
+def visualizer(file_path, visualize_map, output_dir = "viz_output", time_step=10.0e-3):
     """
     each frame is 100ms
     """
@@ -294,8 +294,8 @@ def visualizer(file_path, output_dir = "viz_output", time_step=10.0e-3):
         centers_x.append(cluster_center[0])
         centers_y.append(cluster_center[1])
 
-
-        plt.savefig("{}/{}.jpg".format(output_dir, i))
+        if visualize_map:
+            plt.savefig("{}/{}.jpg".format(output_dir, i))
 
     return centers_x, centers_y
 
